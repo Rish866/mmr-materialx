@@ -20,6 +20,9 @@ npm start                # or: npm run dev  (node --watch)
 | `OTP_TTL_MINUTES` | OTP validity window (default 5) |
 | `SMS_PROVIDER` | `console` (dev, prints OTP to log) or `msg91` |
 | `MSG91_AUTH_KEY` / `MSG91_SENDER_ID` / `MSG91_DLT_TEMPLATE_ID` | MSG91 config for prod SMS |
+| `UPLOAD_PROVIDER` | `local` (dev no-op) / `cloudinary` / `supabase` |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` / `CLOUDINARY_UPLOAD_FOLDER` | Cloudinary signed uploads |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` | Supabase Storage signed uploads |
 | `PGSSL` | set to `disable` for local/socket Postgres |
 
 ## Scripts
@@ -30,6 +33,8 @@ npm start                # or: npm run dev  (node --watch)
 
 ## Notes
 - The feed uses a Haversine distance query (no PostGIS needed at MVP scale).
-- Photos: the mobile app currently sends local URIs as a stub. For the pilot,
-  upload images to Supabase Storage / Cloudinary and send the resulting URLs.
+- **Image uploads** use signed, direct client→storage uploads via
+  `POST /uploads/sign` (see `src/lib/uploads.js`). Set `UPLOAD_PROVIDER=cloudinary`
+  or `supabase` and fill the matching env vars; the storage secret stays on the
+  server. `local` (default) is a dev no-op that keeps the local image URI.
 - Before launch: add rate-limiting on `/auth/otp/send` and verify-attempt caps.

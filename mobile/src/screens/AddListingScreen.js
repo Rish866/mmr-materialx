@@ -5,9 +5,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import { api } from '../api';
+import { compress, uploadAll } from '../upload';
 import { colors, font, radius, spacing } from '../theme';
 import { BigButton } from '../components/ui';
 
@@ -27,6 +27,7 @@ export default function AddListingScreen({ navigation }) {
   const [coords, setCoords] = useState(null);
   const [hub, setHub] = useState('Rabale');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -57,12 +58,12 @@ export default function AddListingScreen({ navigation }) {
     });
     if (res.canceled) return;
     // client-side compression — factory 4G is slow
-    const manip = await ImageManipulator.manipulateAsync(
-      res.assets[0].uri,
-      [{ resize: { width: 1000 } }],
-      { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
-    );
-    setPhotos((p) => [...p, manip.uri]);
+    try {
+      const compressed = await compress(res.assets[0].uri);
+      setPhotos((p) => [...p, compressed]);
+    } catch (e) {
+      Alert.alert('Could not add photo', e.message);
+    }
   }
 
   function removePhoto(i) {
@@ -88,8 +89,17 @@ export default function AddListingScreen({ navigation }) {
 
     setSubmitting(true);
     try {
-      // NOTE: in production upload `photos` to Supabase/Cloudinary first and
-      // send back the resulting URLs. Here we send the local uris as a stub.
+      // 1) Upload photos directly to storage (signed by backend); get public URLs.
+      let photoUrls = [];
+      if (photos.length) {
+        setUploadMsg(`Uploading photos… 0/${photos.length}`);
+        photoUrls = await uploadAll(photos, (done, total) =>
+          setUploadMsg(`Uploading photos… ${done}/${total}`)
+        );
+      }
+
+      // 2) Create the listing with the resulting URLs.
+      setUploadMsg('Posting listing…');
       const payload = {
         title: title.trim(),
         category_id: categoryId,
@@ -100,17 +110,18 @@ export default function AddListingScreen({ navigation }) {
         is_urgent: isUrgent,
         latitude: loc.lat,
         longitude: loc.lng,
-        hub_name: coords ? hub : hub,
-        photos,
+        hub_name: hub,
+        photos: photoUrls,
       };
       await api.createListing(payload);
       Alert.alert('Posted!', 'Your material is now live.', [
         { text: 'OK', onPress: () => navigation.navigate('Feed') },
       ]);
     } catch (e) {
-      Alert.alert('Could not post', e.message);
+      Alert.alert('Could not post', e.message || 'Upload or posting failed.');
     } finally {
       setSubmitting(false);
+      setUploadMsg('');
     }
   }
 
@@ -215,6 +226,9 @@ export default function AddListingScreen({ navigation }) {
         </ScrollView>
 
         <View style={{ height: spacing.xl }} />
+        {submitting && uploadMsg ? (
+          <Text style={styles.uploadMsg}>{uploadMsg}</Text>
+        ) : null}
         <BigButton title="POST LISTING" onPress={submit} loading={submitting} />
         <View style={{ height: spacing.xl }} />
       </ScrollView>
@@ -265,4 +279,5 @@ const styles = StyleSheet.create({
   urgentTitle: { ...font.title, fontSize: 15, color: colors.danger },
   gpsBtn: { height: 52, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   gpsText: { color: colors.primaryDark, fontWeight: '700', fontSize: 15 },
+  uploadMsg: { ...font.muted, textAlign: 'center', marginBottom: spacing.md, color: colors.primaryDark, fontWeight: '700' },
 });

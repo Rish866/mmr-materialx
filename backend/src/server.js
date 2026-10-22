@@ -17,6 +17,7 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'mmr-materialx' 
 app.use('/auth', require('./routes/auth'));
 app.use('/categories', require('./routes/categories'));
 app.use('/listings', require('./routes/listings'));
+app.use('/uploads', require('./routes/uploads'));
 app.use('/', require('./routes/users')); // /me
 
 // central error handler

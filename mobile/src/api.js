@@ -40,6 +40,10 @@ export const api = {
   // catalog
   categories: () => request('/categories'),
 
+  // uploads — get short-lived credentials for a direct client->storage upload
+  signUpload: ({ fileName, contentType } = {}) =>
+    request('/uploads/sign', { method: 'POST', body: { fileName, contentType }, auth: true }),
+
   // listings
   feed: ({ lat, lng, radius_km = 25, category, q }) => {
     const p = new URLSearchParams({ lat, lng, radius_km });

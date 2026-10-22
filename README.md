@@ -45,6 +45,13 @@ EXPO_PUBLIC_API_BASE=http://<your-lan-ip>:3000 npm start
 Scan the QR with Expo Go (Android-first — that's what MIDC owners use).
 Android emulator reaches localhost at `http://10.0.2.2:3000` (the default).
 
+### Image uploads
+Photos are compressed on-device and uploaded **directly** to Cloudinary or
+Supabase Storage via a backend-signed credential (`POST /uploads/sign`) — the
+storage secret never ships in the app. In dev, `UPLOAD_PROVIDER=local` keeps the
+local image URI so you can build without any storage account. See
+[`docs/API.md`](docs/API.md#image-uploads--post-uploadssign) to switch providers.
+
 ---
 
 ## The three hero screens
@@ -52,7 +59,7 @@ Android emulator reaches localhost at `http://10.0.2.2:3000` (the default).
 | Screen | What it does |
 |---|---|
 | **Home Feed** | Location pill, search, radius chips (10/25/**50**km, default 25), horizontal category scroll, 2-column product grid with distance tags + 🔴 URGENT flags, oversized center **Sell** FAB. |
-| **Add Listing** | Single-page form: up to 4 client-compressed photos, title, category, quantity stepper + unit, price with per-unit/total-lot toggle, Urgent Liquidation switch (auto 24h expiry), GPS with MIDC hub fallback. |
+| **Add Listing** | Single-page form: up to 4 photos compressed on-device and uploaded to cloud storage on submit, title, category, quantity stepper + unit, price with per-unit/total-lot toggle, Urgent Liquidation switch (auto 24h expiry), GPS with MIDC hub fallback. |
 | **Listing & Deal** | Photo carousel, urgent countdown, price/qty/distance/seller, **💰 Make Offer** bottom sheet + **💬 WhatsApp** — both open a pre-filled `wa.me` link carrying title, listed price, and offer. |
 
 ---

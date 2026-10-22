@@ -49,12 +49,26 @@ backend/src/
     └── listings.js      create / feed(Haversine) / detail / status / interest
 ```
 
+## Image uploads (direct, signed)
+The client never holds the storage secret. Flow:
+1. Mobile picks + compresses the photo locally (`expo-image-manipulator`, resize
+   to 1000px / JPEG q0.6 — factory 4G is slow).
+2. Mobile calls `POST /uploads/sign` → backend returns short-lived, scoped creds
+   (`src/lib/uploads.js`, pluggable like the SMS provider).
+3. Mobile uploads the bytes **directly** to Cloudinary (multipart) or Supabase
+   Storage (PUT to a signed URL) — the API never proxies image bytes.
+4. Mobile sends the resulting public URLs in the listing's `photos` array.
+
+Provider is chosen by `UPLOAD_PROVIDER` (`local` | `cloudinary` | `supabase`);
+`local` is a dev no-op that keeps the local URI so you can build with no account.
+
 ## Security notes (MVP → production)
 - OTP: rate-limit `/auth/otp/send` per phone/IP before launch; cap attempts on verify.
 - JWT secret must be long & random; tokens expire in 90 days.
 - Validate/normalise all numeric inputs server-side (done for price/qty/offer).
-- Move photo uploads to signed uploads (Supabase Storage / Cloudinary) — the app
-  currently sends local URIs as a stub; wire real upload before the pilot.
+- Image uploads are signed server-side; the storage secret never ships in the app.
+  For Supabase, keep the bucket public for reads, or switch `publicUrl` to a
+  signed read URL if listings should be private.
 
 ## Deployment
 - **DB:** Supabase / Neon / Railway (managed Postgres). Run `npm run migrate`.
