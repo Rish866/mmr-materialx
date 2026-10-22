@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "MMR MaterialX",
+    "slug": "mmr-materialx",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": { "resizeMode": "contain", "backgroundColor": "#1565C0" },
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": false },
+    "android": {
+      "package": "com.mmr.materialx",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"]
+    },
+    "plugins": [
+      ["expo-image-picker", { "photosPermission": "Allow MMR MaterialX to access your photos to post listings." }],
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Allow MMR MaterialX to use your location to show nearby materials." }]
+    ]
+  }
+}
