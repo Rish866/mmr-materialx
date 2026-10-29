@@ -8,6 +8,8 @@ import HomeFeedScreen from './screens/HomeFeedScreen';
 import AddListingScreen from './screens/AddListingScreen';
 import ListingScreen from './screens/ListingScreen';
 import MeScreen from './screens/MeScreen';
+import MyListingsScreen from './screens/MyListingsScreen';
+import EditListingScreen from './screens/EditListingScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -43,7 +45,7 @@ function Tabs({ onSignedOut }) {
         }} />
       <Tab.Screen name="Me"
         options={{ tabBarIcon: () => <Text style={{ fontSize: 22 }}>👤</Text> }}>
-        {() => <MeScreen onSignedOut={onSignedOut} />}
+        {(props) => <MeScreen {...props} onSignedOut={onSignedOut} />}
       </Tab.Screen>
     </Tab.Navigator>
   );
@@ -55,6 +57,8 @@ export default function RootNavigator({ onSignedOut }) {
       <Stack.Screen name="Tabs">{() => <Tabs onSignedOut={onSignedOut} />}</Stack.Screen>
       <Stack.Screen name="Listing" component={ListingScreen} />
       <Stack.Screen name="AddListing" component={AddListingScreen} />
+      <Stack.Screen name="MyListings" component={MyListingsScreen} />
+      <Stack.Screen name="EditListing" component={EditListingScreen} />
     </Stack.Navigator>
   );
 }

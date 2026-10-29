@@ -14,8 +14,10 @@ Auth: `Authorization: Bearer <jwt>` on protected routes.
 | POST | `/uploads/sign` | ✅ | `{ fileName?, contentType? }` | provider-specific upload credentials |
 | POST | `/listings` | ✅ | listing payload (below) | `{ listing }` |
 | GET  | `/listings` | – | `lat, lng, radius_km=25, category?, q?` | `[ listing + distance_km + category ]` |
+| GET  | `/listings/mine` | ✅ owner | – | `[ seller's own listings, all statuses + category ]` |
 | GET  | `/listings/:id` | – | – | listing + seller contact |
-| PATCH| `/listings/:id/status` | ✅ owner | `{ status: active\|sold\|expired }` | `{ id, status }` |
+| PATCH| `/listings/:id` | ✅ owner | partial editable fields (below) | `{ listing }` |
+| PATCH| `/listings/:id/status` | ✅ owner | `{ status: active\|sold\|expired\|withdrawn }` | `{ id, status }` |
 | POST | `/listings/:id/interest` | ✅ | `{ offer_price? }` | `{ whatsapp_url }` |
 
 ### Create-listing payload
@@ -39,7 +41,41 @@ Auth: `Authorization: Bearer <jwt>` on protected routes.
 - Requires `lat` & `lng` (buyer's location). `radius_km` defaults to 25.
 - Distance computed via Haversine in SQL; each row carries `distance_km`.
 - Sort order: `is_urgent DESC, distance_km ASC, created_at DESC`.
-- Hides `sold`/`expired` listings and urgent listings past `expires_at`.
+- Shows only `active` listings and hides urgent listings past `expires_at`
+  (so `sold`, `expired`, and `withdrawn` never appear to buyers).
+
+### Seller listing management
+- **`GET /listings/mine`** — the authenticated seller's own listings across
+  **all** statuses (active/sold/expired/withdrawn), newest first, each with
+  `category_slug`/`category_name`. On each call it lazily flips any of *that
+  seller's* urgent listings whose `expires_at` has passed from `active` to
+  `expired` — a safe, infra-free cleanup scoped to the caller's own rows (no
+  cron/worker needed). The public feed already excludes past-expiry listings
+  regardless.
+- **`PATCH /listings/:id`** — partial edit, **owner-only** (ownership enforced
+  in the SQL `WHERE user_id = <caller>`; a non-owner gets `404
+  not_found_or_not_owner`). Editable fields: `title`, `category_id`, `quantity`,
+  `unit`, `price`, `price_type`, `is_urgent`, `hub_name`, `photos`. Toggling
+  `is_urgent` on sets a fresh 24h `expires_at`; toggling it off clears it.
+  Validation errors return `400` with codes like `invalid_title`,
+  `invalid_price_type`, `invalid_price`, `invalid_category`, `invalid_photos`,
+  or `no_fields`.
+- **`PATCH /listings/:id/status`** — owner-only status change. `withdrawn`
+  removes a listing from the market **without deleting it** (history + analytics
+  preserved); it can later be set back to `active` to re-list.
+
+### Editable fields payload (PATCH /listings/:id)
+```json
+{
+  "title": "Updated title",
+  "price": 9000,
+  "price_type": "total",
+  "quantity": 150,
+  "unit": "litres",
+  "is_urgent": false,
+  "photos": ["https://.../existing.jpg", "https://.../new.jpg"]
+}
+```
 
 ### Deal interest → WhatsApp
 `POST /listings/:id/interest` logs the interest (analytics in `deal_interests`)

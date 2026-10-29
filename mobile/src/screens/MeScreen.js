@@ -5,7 +5,7 @@ import { api, setToken } from '../api';
 import { colors, font, radius, spacing } from '../theme';
 import { BigButton } from '../components/ui';
 
-export default function MeScreen({ onSignedOut }) {
+export default function MeScreen({ onSignedOut, navigation }) {
   const [me, setMe] = useState(null);
   const [name, setName] = useState('');
   const [business, setBusiness] = useState('');
@@ -47,6 +47,15 @@ export default function MeScreen({ onSignedOut }) {
         <TextInput style={styles.input} value={business} onChangeText={setBusiness} placeholder="e.g. Sharma Industries" placeholderTextColor={colors.textMuted} />
 
         <BigButton title="Save" onPress={save} loading={busy} />
+
+        <View style={{ height: spacing.xl }} />
+        <BigButton
+          title="📦  My Listings"
+          color={colors.surface}
+          textColor={colors.primaryDark}
+          onPress={() => navigation && navigation.navigate('MyListings')}
+        />
+
         <View style={{ height: spacing.md }} />
         <BigButton title="Log out" color={colors.surface} textColor={colors.danger} onPress={logout} />
       </View>

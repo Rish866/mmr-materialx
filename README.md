@@ -70,9 +70,12 @@ local image URI so you can build without any storage account. See
 
 A **permanent automated test suite** lives in [`backend/test/`](backend/test)
 (Node's built-in `node:test` runner — no extra test dependencies). It runs
-**40 integration tests** against a real PostgreSQL database covering auth/OTP,
+**61 integration tests** against a real PostgreSQL database covering auth/OTP,
 JWT guards, listings (create/feed/radius/category/search/detail/sold/ownership),
-deal-interest + WhatsApp URLs, categories, profiles, and upload-signing.
+**seller management (`/listings/mine`, owner-only edit, withdraw/re-activate,
+lazy expiry)**, deal-interest + WhatsApp URLs, categories, profiles, and
+upload-signing. The mobile app also has **10 pure-helper unit tests**
+([`mobile/test/`](mobile/test)) for price/date/status/thumbnail formatting.
 
 ```bash
 cd backend
@@ -86,14 +89,15 @@ See [`backend/README.md`](backend/README.md#testing) for the full guide
 (including a one-line Docker command to start a test database).
 
 **Continuous Integration:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
-runs lint → migrate → tests against a PostgreSQL 16 service container on every
-push and pull request to `main`. It uses only safe, test-only environment
-variables — no production secrets.
+has two jobs on every push/PR to `main`: **backend** (lint → migrate → tests
+against a PostgreSQL 16 service container) and **mobile** (pure-helper unit
+tests). It uses only safe, test-only environment variables — no production
+secrets.
 
-> Locally, these tests were executed against an embedded PostgreSQL 16/18 and
-> the entire CI job (`npm ci → lint → migrate → test`) was simulated end-to-end:
-> **40/40 passing, exit code 0.** The GitHub-hosted run will appear under the
-> repo's **Actions** tab once pushed.
+> Locally, the backend tests were executed against an embedded PostgreSQL 16/18
+> and the full backend CI job (`npm ci → lint → migrate → test`) was simulated
+> end-to-end: **61/61 passing**; the mobile suite is **10/10 passing**. The
+> GitHub-hosted runs appear under the repo's **Actions** tab.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/API.md`](docs/API.md),
 and [`docs/ROADMAP.md`](docs/ROADMAP.md).

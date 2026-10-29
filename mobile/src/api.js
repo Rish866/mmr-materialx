@@ -52,7 +52,9 @@ export const api = {
     return request(`/listings?${p.toString()}`);
   },
   listing: (id) => request(`/listings/${id}`),
+  myListings: () => request('/listings/mine', { auth: true }),
   createListing: (payload) => request('/listings', { method: 'POST', body: payload, auth: true }),
+  updateListing: (id, patch) => request(`/listings/${id}`, { method: 'PATCH', body: patch, auth: true }),
   setStatus: (id, status) => request(`/listings/${id}/status`, { method: 'PATCH', body: { status }, auth: true }),
   interest: (id, offer_price) => request(`/listings/${id}/interest`, { method: 'POST', body: { offer_price }, auth: true }),
 };
