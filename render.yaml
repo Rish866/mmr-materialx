@@ -3,12 +3,13 @@
 #
 # This provisions ONE web service from the backend/ directory. It does NOT
 # provision a database — create managed Postgres separately (Neon or Supabase,
-# or Render Postgres) and paste its connection string into DATABASE_URL in the
-# Render dashboard. No secrets are stored in this file: every secret has
-# `sync: false`, meaning you set its value in the dashboard.
+# or Render Postgres) and set DATABASE_URL in the Render dashboard. No secrets
+# are stored in this file: every secret has sync: false.
 #
-# Migrations run as a SEPARATE preDeployCommand (not inside start), and are
-# idempotent + non-destructive (see backend/scripts/migrate.js).
+# Render's free web services do not support preDeployCommand. Run the
+# idempotent, non-destructive migrations at the end of the build command
+# instead, before the new service version starts (see backend/scripts/migrate.js).
+# Environment variables are available during both build and runtime on Render.
 
 services:
   - type: web
@@ -17,8 +18,7 @@ services:
     plan: free
     region: singapore            # closest Render region to Mumbai/MMR
     rootDir: backend
-    buildCommand: npm ci
-    preDeployCommand: npm run migrate
+    buildCommand: npm ci && npm run migrate
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true
