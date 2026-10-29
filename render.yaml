@@ -1,0 +1,56 @@
+# Render Blueprint for the MMR MaterialX API.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# This provisions ONE web service from the backend/ directory. It does NOT
+# provision a database — create managed Postgres separately (Neon or Supabase,
+# or Render Postgres) and paste its connection string into DATABASE_URL in the
+# Render dashboard. No secrets are stored in this file: every secret has
+# `sync: false`, meaning you set its value in the dashboard.
+#
+# Migrations run as a SEPARATE preDeployCommand (not inside start), and are
+# idempotent + non-destructive (see backend/scripts/migrate.js).
+
+services:
+  - type: web
+    name: mmr-materialx-api
+    runtime: node
+    plan: free
+    region: singapore            # closest Render region to Mumbai/MMR
+    rootDir: backend
+    buildCommand: npm ci
+    preDeployCommand: npm run migrate
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # ---- Secrets / per-environment values: set these in the dashboard ----
+      - key: DATABASE_URL          # from Neon/Supabase (include ?sslmode=require)
+        sync: false
+      - key: JWT_SECRET            # >=32 random chars (see deployment guide)
+        sync: false
+      - key: SMS_PROVIDER          # "msg91" for production
+        sync: false
+      - key: MSG91_AUTH_KEY
+        sync: false
+      - key: MSG91_SENDER_ID
+        sync: false
+      - key: MSG91_DLT_TEMPLATE_ID
+        sync: false
+      - key: UPLOAD_PROVIDER       # "cloudinary" or "supabase"
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        sync: false
+      - key: CORS_ORIGINS          # comma-separated; optional for mobile-only
+        sync: false

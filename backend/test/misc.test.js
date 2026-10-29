@@ -9,11 +9,18 @@ test.before(async () => {
 test.after(async () => { await h.stopServer(); });
 test.beforeEach(async () => { await h.resetData(); });
 
-test('GET /health returns ok', async () => {
+test('GET /health returns ok (liveness)', async () => {
   const { status, body } = await h.http('GET', '/health');
   assert.equal(status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.service, 'mmr-materialx');
+});
+
+test('GET /health/ready reports database up (readiness)', async () => {
+  const { status, body } = await h.http('GET', '/health/ready');
+  assert.equal(status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.db, 'up');
 });
 
 test('unknown route returns 404', async () => {

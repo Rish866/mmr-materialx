@@ -14,6 +14,7 @@
     "@react-navigation/native-stack": "^6.11.0",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "expo": "~51.0.0",
+    "expo-constants": "~16.0.2",
     "expo-image-manipulator": "~12.0.5",
     "expo-image-picker": "~15.0.7",
     "expo-location": "~17.0.1",
