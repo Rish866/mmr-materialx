@@ -29,11 +29,18 @@ export default function ListingScreen({ route, navigation }) {
     setBusy(true);
     try {
       const { whatsapp_url } = await api.interest(id, offerPrice ?? null);
-      const ok = await Linking.canOpenURL(whatsapp_url);
-      if (ok) await Linking.openURL(whatsapp_url);
-      else await Linking.openURL(whatsapp_url); // let OS attempt anyway
+      // wa.me is a standard https link: WhatsApp (if installed) or the browser
+      // both handle it, so no Android package-visibility query is needed.
+      try {
+        await Linking.openURL(whatsapp_url);
+      } catch {
+        Alert.alert(
+          'WhatsApp not available',
+          'Could not open WhatsApp. Make sure WhatsApp is installed, or copy the seller\'s number from the listing.'
+        );
+      }
     } catch (e) {
-      Alert.alert('Could not open WhatsApp', e.message);
+      Alert.alert('Could not reach the seller', e.message);
     } finally {
       setBusy(false);
       setOfferOpen(false);

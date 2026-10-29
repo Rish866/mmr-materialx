@@ -14,6 +14,10 @@ node_modules/
 .expo/
 dist/
 web-build/
+*.apk
+*.aab
+android/
+ios/
 
 # Test / coverage output
 coverage/
