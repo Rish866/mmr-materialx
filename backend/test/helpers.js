@@ -21,6 +21,14 @@ process.env.SMS_PROVIDER = 'console';
 process.env.UPLOAD_PROVIDER = process.env.UPLOAD_PROVIDER || 'local';
 process.env.PGSSL = process.env.PGSSL || 'disable';
 process.env.OTP_TTL_MINUTES = process.env.OTP_TTL_MINUTES || '5';
+// Relax rate limits for the GENERAL test suite so legitimate repeated logins in
+// fixtures aren't throttled. The dedicated security tests (security.test.js)
+// exercise the limits directly with their own strict values. These only take
+// effect because config.js reads them at module load in the test process.
+process.env.RL_OTP_SEND_COOLDOWN_SEC = process.env.RL_OTP_SEND_COOLDOWN_SEC || '0';
+process.env.RL_OTP_SEND_IP_MAX = process.env.RL_OTP_SEND_IP_MAX || '100000';
+process.env.RL_OTP_SEND_PHONE_MAX = process.env.RL_OTP_SEND_PHONE_MAX || '100000';
+process.env.RL_OTP_VERIFY_PHONE_MAX = process.env.RL_OTP_VERIFY_PHONE_MAX || '100000';
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 if (!TEST_DB_URL) {
@@ -61,7 +69,7 @@ async function resetData() {
   const client = await sharedClient();
   // RESTART IDENTITY so ids are stable across tests; CASCADE for FKs.
   await client.query(
-    'TRUNCATE deal_interests, listings, otp_codes, users RESTART IDENTITY CASCADE'
+    'TRUNCATE deal_interests, listings, otp_codes, users, rate_events RESTART IDENTITY CASCADE'
   );
 }
 
@@ -106,7 +114,23 @@ async function http(method, pathname, { token, body, raw } = {}) {
   });
   let parsed;
   try { parsed = await res.json(); } catch { parsed = null; }
-  return { status: res.status, body: parsed };
+  const resHeaders = {};
+  res.headers.forEach((val, key) => { resHeaders[key] = val; });
+  return { status: res.status, body: parsed, headers: resHeaders };
+}
+
+// Send a RAW (possibly malformed) body string and fully consume the response.
+async function httpRaw(method, pathname, rawBody, contentType = 'application/json') {
+  const res = await fetch(`${baseUrl}${pathname}`, {
+    method,
+    headers: { 'Content-Type': contentType },
+    body: rawBody,
+  });
+  let parsed;
+  try { parsed = await res.json(); } catch { parsed = null; }
+  const headers = {};
+  res.headers.forEach((val, key) => { headers[key] = val; });
+  return { status: res.status, body: parsed, headers };
 }
 
 // Mint a JWT for a given user id WITHOUT going through OTP (handy for guards).
@@ -150,5 +174,6 @@ async function seedListing(overrides = {}) {
 
 module.exports = {
   applyMigrations, resetData, dbClient, startServer, stopServer,
-  http, tokenForUid: tokenFor, loginViaOtp, seedListing, TEST_DB_URL,
+  http, httpRaw, tokenForUid: tokenFor, loginViaOtp, seedListing, TEST_DB_URL,
+  _baseUrl: () => baseUrl,
 };

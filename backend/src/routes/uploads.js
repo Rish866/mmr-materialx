@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { requireAuth } = require('../middleware/auth');
 const { getUploadCredentials, provider } = require('../lib/uploads');
+const asyncHandler = require('../lib/asyncHandler');
 
 /**
  * POST /uploads/sign   (auth)
@@ -8,7 +9,7 @@ const { getUploadCredentials, provider } = require('../lib/uploads');
  * Returns short-lived credentials for a DIRECT client->storage upload.
  * The storage secret never leaves the server.
  */
-router.post('/sign', requireAuth, async (req, res) => {
+router.post('/sign', requireAuth, asyncHandler(async (req, res) => {
   try {
     const creds = await getUploadCredentials({
       fileName: req.body?.fileName,
@@ -26,6 +27,6 @@ router.post('/sign', requireAuth, async (req, res) => {
     console.error('[uploads] sign error:', msg);
     res.status(status).json({ error: msg, provider: provider() });
   }
-});
+}));
 
 module.exports = router;

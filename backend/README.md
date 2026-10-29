@@ -42,7 +42,8 @@ database, so they need a throwaway database to point at.
 
 ### What is covered
 `test/auth.test.js`, `test/listings.test.js`, `test/misc.test.js`,
-`test/uploads.test.js`, `test/my-listings.test.js` — **61 tests** covering:
+`test/uploads.test.js`, `test/my-listings.test.js`, `test/security.test.js`,
+`test/config.test.js` — **87 tests** covering:
 health & 404 handling; OTP send/verify incl. invalid, expired, reused codes;
 JWT guards (no/bad token); listing create (valid + invalid); feed with radius /
 category / title-search filters and urgent-first ordering; sold/expired/withdrawn
@@ -53,6 +54,14 @@ plus `503` on a misconfigured `cloudinary`/`supabase` provider; **and the seller
 management flow** — `GET /listings/mine` (own-only, all statuses, lazy expiry),
 `PATCH /listings/:id` (owner-only edit, valid + every invalid-input path), and
 the `withdrawn` lifecycle (feed hide + re-activate).
+
+The suite also covers **Phase 3 security hardening**: OTP rate limiting (per
+IP/phone + cooldown), OTP verify brute-force caps (old records cannot bypass),
+input/image-URL validation, security headers + CORS, generic error handling,
+DB-error resilience, WhatsApp URL encoding, and production config failures
+(weak/missing JWT secret, console SMS, local uploads refused in prod). See
+[`../docs/SECURITY.md`](../docs/SECURITY.md) for the full checklist, including
+**unresolved risks**.
 
 ### Listing lifecycle (`status` column)
 `active` → shown to buyers · `sold` · `expired` (auto, when an urgent listing's

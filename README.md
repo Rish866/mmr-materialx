@@ -70,19 +70,21 @@ local image URI so you can build without any storage account. See
 
 A **permanent automated test suite** lives in [`backend/test/`](backend/test)
 (Node's built-in `node:test` runner — no extra test dependencies). It runs
-**61 integration tests** against a real PostgreSQL database covering auth/OTP,
+**87 integration tests** against a real PostgreSQL database covering auth/OTP,
 JWT guards, listings (create/feed/radius/category/search/detail/sold/ownership),
 **seller management (`/listings/mine`, owner-only edit, withdraw/re-activate,
-lazy expiry)**, deal-interest + WhatsApp URLs, categories, profiles, and
-upload-signing. The mobile app also has **10 pure-helper unit tests**
-([`mobile/test/`](mobile/test)) for price/date/status/thumbnail formatting.
+lazy expiry)**, deal-interest + WhatsApp URLs, categories, profiles,
+upload-signing, and **security hardening (OTP rate limiting + brute-force caps,
+input/image validation, security headers, prod config failures)**. The mobile
+app also has **10 pure-helper unit tests** ([`mobile/test/`](mobile/test)) for
+price/date/status/thumbnail formatting.
 
 ```bash
 cd backend
 npm ci
 export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mmr_test"
 export JWT_SECRET="any-test-secret" PGSSL=disable
-npm test        # 40 tests, ~2s; non-zero exit on failure
+npm test        # 87 tests, ~4s; non-zero exit on failure
 ```
 
 See [`backend/README.md`](backend/README.md#testing) for the full guide
@@ -96,8 +98,13 @@ secrets.
 
 > Locally, the backend tests were executed against an embedded PostgreSQL 16/18
 > and the full backend CI job (`npm ci → lint → migrate → test`) was simulated
-> end-to-end: **61/61 passing**; the mobile suite is **10/10 passing**. The
+> end-to-end: **87/87 passing**; the mobile suite is **10/10 passing**. The
 > GitHub-hosted runs appear under the repo's **Actions** tab.
+
+**Security:** see [`docs/SECURITY.md`](docs/SECURITY.md) for the Phase 3
+hardening checklist (rate limiting, OTP brute-force protection, config
+validation, headers/CORS) **and the honest list of unresolved risks** — the
+system is hardened for a controlled pilot, not certified production-secure.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/API.md`](docs/API.md),
 and [`docs/ROADMAP.md`](docs/ROADMAP.md).
