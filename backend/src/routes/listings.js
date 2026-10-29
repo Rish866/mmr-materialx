@@ -1,6 +1,13 @@
 const router = require('express').Router();
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const config = require('../config');
+const v = require('../lib/validate');
+const asyncHandler = require('../lib/asyncHandler');
+
+// In dev with UPLOAD_PROVIDER=local the app keeps local image URIs, so those
+// are accepted; in prod only https storage URLs are allowed.
+const ALLOW_LOCAL_PHOTOS = !config.isProd;
 
 // Haversine distance (km) SQL fragment. $1=lat, $2=lng reference point.
 const DISTANCE_SQL = `
@@ -11,11 +18,28 @@ const DISTANCE_SQL = `
   )`;
 
 // POST /listings  (create)  — auth required
-router.post('/', requireAuth, async (req, res) => {
-  const b = req.body;
-  if (!b.title || !b.category_id || b.latitude == null || b.longitude == null) {
+router.post('/', requireAuth, asyncHandler(async (req, res) => {
+  const b = req.body || {};
+  if (!b.title || !String(b.title).trim() || !b.category_id || b.latitude == null || b.longitude == null) {
     return res.status(400).json({ error: 'missing_fields' });
   }
+  // Business-rule validation (parameterised queries below prevent injection;
+  // this rejects nonsensical/abusive values early with clear error codes).
+  if (String(b.title).length > 200) return res.status(400).json({ error: 'invalid_title' });
+  if (!v.isId(b.category_id)) return res.status(400).json({ error: 'invalid_category' });
+  if (!v.isLat(b.latitude) || !v.isLng(b.longitude)) return res.status(400).json({ error: 'invalid_location' });
+  if (!v.isMoneyOrQty(b.price)) return res.status(400).json({ error: 'invalid_price' });
+  if (!v.isMoneyOrQty(b.quantity)) return res.status(400).json({ error: 'invalid_quantity' });
+  if ('price_type' in b && !['per_unit', 'total'].includes(b.price_type)) {
+    return res.status(400).json({ error: 'invalid_price_type' });
+  }
+  if ('photos' in b) {
+    const perr = v.validatePhotos(b.photos, { allowLocal: ALLOW_LOCAL_PHOTOS });
+    if (perr) return res.status(400).json({ error: perr });
+  }
+  const catOk = await db.query('SELECT 1 FROM categories WHERE id=$1', [b.category_id]);
+  if (!catOk.rows.length) return res.status(400).json({ error: 'invalid_category' });
+
   const isUrgent = !!b.is_urgent;
   const expiresAt = isUrgent ? new Date(Date.now() + 24 * 3600 * 1000) : null;
 
@@ -33,11 +57,11 @@ router.post('/', requireAuth, async (req, res) => {
     ]
   );
   res.status(201).json({ listing: rows[0] });
-});
+}));
 
 // GET /listings?lat=&lng=&radius_km=25&category=paints&q=epoxy
 // Hyper-local feed: urgent first, then nearest. Expired urgent listings hidden.
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const { lat, lng, radius_km = 25, category, q } = req.query;
   if (lat == null || lng == null) {
     return res.status(400).json({ error: 'lat_lng_required' });
@@ -69,14 +93,14 @@ router.get('/', async (req, res) => {
 
   const { rows } = await db.query(sql, params);
   res.json(rows);
-});
+}));
 
 // GET /listings/mine  — the authenticated seller's own listings (ALL statuses).
 // NOTE: must be declared BEFORE '/:id' so "mine" isn't captured as an id.
 // Lazily flips any of this seller's urgent listings whose expiry has passed to
 // status 'expired' so the UI never shows a stale 'active'. This is a safe,
 // infra-free cleanup scoped to the requesting owner's own rows only.
-router.get('/mine', requireAuth, async (req, res) => {
+router.get('/mine', requireAuth, asyncHandler(async (req, res) => {
   await db.query(
     `UPDATE listings SET status='expired'
       WHERE user_id=$1 AND status='active'
@@ -92,10 +116,11 @@ router.get('/mine', requireAuth, async (req, res) => {
     [req.user.uid]
   );
   res.json(rows);
-});
+}));
 
 // GET /listings/:id  — detail incl. seller contact for the WhatsApp link
-router.get('/:id', async (req, res) => {
+router.get('/:id', asyncHandler(async (req, res) => {
+  if (!v.isId(req.params.id)) return res.status(404).json({ error: 'not_found' });
   const { rows } = await db.query(
     `SELECT l.*, c.slug AS category_slug, c.name AS category_name,
             u.phone AS seller_phone, u.name AS seller_name,
@@ -108,7 +133,7 @@ router.get('/:id', async (req, res) => {
   );
   if (!rows.length) return res.status(404).json({ error: 'not_found' });
   res.json(rows[0]);
-});
+}));
 
 // Valid listing lifecycle states. 'withdrawn' lets a seller take a listing off
 // the market without a destructive delete (keeps analytics + history intact).
@@ -117,7 +142,7 @@ const LISTING_STATUSES = ['active', 'sold', 'expired', 'withdrawn'];
 // PATCH /listings/:id  — edit listing fields (owner only).
 // Only whitelisted, user-editable columns can change; ownership is enforced in
 // the WHERE clause so a non-owner can never mutate someone else's listing.
-router.patch('/:id', requireAuth, async (req, res) => {
+router.patch('/:id', requireAuth, asyncHandler(async (req, res) => {
   if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'not_found' });
   const b = req.body || {};
 
@@ -128,8 +153,9 @@ router.patch('/:id', requireAuth, async (req, res) => {
   if ('price_type' in b && !['per_unit', 'total'].includes(b.price_type)) {
     return res.status(400).json({ error: 'invalid_price_type' });
   }
-  if ('photos' in b && !Array.isArray(b.photos)) {
-    return res.status(400).json({ error: 'invalid_photos' });
+  if ('photos' in b) {
+    const perr = v.validatePhotos(b.photos, { allowLocal: ALLOW_LOCAL_PHOTOS });
+    if (perr) return res.status(400).json({ error: perr });
   }
   for (const num of ['quantity', 'price']) {
     if (num in b && b[num] !== null && Number.isNaN(Number(b[num]))) {
@@ -172,11 +198,12 @@ router.patch('/:id', requireAuth, async (req, res) => {
   );
   if (!rows.length) return res.status(404).json({ error: 'not_found_or_not_owner' });
   res.json({ listing: rows[0] });
-});
+}));
 
 // PATCH /listings/:id/status  { status }  — owner only
-router.patch('/:id/status', requireAuth, async (req, res) => {
-  const { status } = req.body;
+router.patch('/:id/status', requireAuth, asyncHandler(async (req, res) => {
+  if (!v.isId(req.params.id)) return res.status(404).json({ error: 'not_found' });
+  const { status } = req.body || {};
   if (!LISTING_STATUSES.includes(status)) {
     return res.status(400).json({ error: 'bad_status' });
   }
@@ -186,12 +213,15 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
   );
   if (!rows.length) return res.status(404).json({ error: 'not_found_or_not_owner' });
   res.json(rows[0]);
-});
+}));
 
 // POST /listings/:id/interest  { offer_price? }  -> { whatsapp_url }
 // Logs buyer interest (analytics) and returns a pre-filled WhatsApp deep link.
-router.post('/:id/interest', requireAuth, async (req, res) => {
-  const offer = req.body.offer_price != null ? Number(req.body.offer_price) : null;
+router.post('/:id/interest', requireAuth, asyncHandler(async (req, res) => {
+  if (!v.isId(req.params.id)) return res.status(404).json({ error: 'not_found' });
+  const b = req.body || {};
+  const offer = b.offer_price != null ? Number(b.offer_price) : null;
+  if (offer !== null && !v.isMoneyOrQty(offer)) return res.status(400).json({ error: 'invalid_offer' });
 
   const { rows } = await db.query(
     `SELECT l.title, l.price, l.price_type, u.phone
@@ -212,6 +242,6 @@ router.post('/:id/interest', requireAuth, async (req, res) => {
     `Hi, I saw your "${l.title}" (₹${l.price}) on MMR MaterialX.${offerLine} Is it still available?`
   );
   res.json({ whatsapp_url: `https://wa.me/${l.phone}?text=${text}` });
-});
+}));
 
 module.exports = router;

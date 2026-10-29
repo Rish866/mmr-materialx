@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const config = require('../config');
 
 /** Requires a valid Bearer token; attaches req.user = { uid }. */
 function requireAuth(req, res, next) {
@@ -6,7 +7,7 @@ function requireAuth(req, res, next) {
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'no_token' });
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, config.JWT_SECRET);
     next();
   } catch {
     return res.status(401).json({ error: 'bad_token' });
