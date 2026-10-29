@@ -7,7 +7,10 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "migrate": "node scripts/migrate.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "test": "node --test --test-concurrency=1 --test-force-exit \"test/**/*.test.js\"",
+    "test:watch": "node --test --watch --test-concurrency=1 \"test/**/*.test.js\"",
+    "lint": "node scripts/check-syntax.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

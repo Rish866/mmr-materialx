@@ -1,5 +1,7 @@
 # MMR MaterialX
 
+[![CI](https://github.com/Rish866/mmr-materialx/actions/workflows/ci.yml/badge.svg)](https://github.com/Rish866/mmr-materialx/actions/workflows/ci.yml)
+
 Hyper-local **B2B raw material exchange & liquidation** app for Mumbai Metropolitan
 Region (MMR) industrial hubs — Rabale, Taloja MIDC, Bhiwandi, Ulwe, Vasai.
 
@@ -64,17 +66,34 @@ local image URI so you can build without any storage account. See
 
 ---
 
-## Verification status
+## Testing & CI
 
-The schema and backend were **run and tested against a real PostgreSQL 18
-instance** during development:
+A **permanent automated test suite** lives in [`backend/test/`](backend/test)
+(Node's built-in `node:test` runner — no extra test dependencies). It runs
+**40 integration tests** against a real PostgreSQL database covering auth/OTP,
+JWT guards, listings (create/feed/radius/category/search/detail/sold/ownership),
+deal-interest + WhatsApp URLs, categories, profiles, and upload-signing.
 
-- Migration applies cleanly: 5 tables, 6 seeded categories, 4 indexes.
-- A 16-check end-to-end suite against the live Express app passes:
-  OTP send/verify → JWT → profile update → create urgent listing (24h expiry)
-  → radius-filtered feed (urgent-first, with `distance_km`) → category filter
-  → radius narrowing → listing detail with seller phone → deal interest producing
-  a correct pre-filled `wa.me` link → mark sold → dropped from feed → 401 auth guard.
+```bash
+cd backend
+npm ci
+export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mmr_test"
+export JWT_SECRET="any-test-secret" PGSSL=disable
+npm test        # 40 tests, ~2s; non-zero exit on failure
+```
+
+See [`backend/README.md`](backend/README.md#testing) for the full guide
+(including a one-line Docker command to start a test database).
+
+**Continuous Integration:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+runs lint → migrate → tests against a PostgreSQL 16 service container on every
+push and pull request to `main`. It uses only safe, test-only environment
+variables — no production secrets.
+
+> Locally, these tests were executed against an embedded PostgreSQL 16/18 and
+> the entire CI job (`npm ci → lint → migrate → test`) was simulated end-to-end:
+> **40/40 passing, exit code 0.** The GitHub-hosted run will appear under the
+> repo's **Actions** tab once pushed.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/API.md`](docs/API.md),
 and [`docs/ROADMAP.md`](docs/ROADMAP.md).
