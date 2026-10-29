@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const config = require('./config');
+const db = require('./db');
 
 const app = express();
 
@@ -54,7 +55,21 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Liveness: cheap, always-200 while the process is up. Hosting platforms use
+// this to decide whether the container is alive. It must NOT depend on the DB,
+// so a brief DB blip doesn't cause the platform to kill a healthy process.
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'mmr-materialx' }));
+
+// Readiness: verifies the database is reachable. Use this for the deploy
+// health check / smoke tests. Returns 503 if the DB is not reachable.
+app.get('/health/ready', async (_req, res) => {
+  try {
+    await db.healthCheck();
+    res.json({ ok: true, db: 'up' });
+  } catch (e) {
+    res.status(503).json({ ok: false, db: 'down' });
+  }
+});
 
 app.use('/auth', require('./routes/auth'));
 app.use('/categories', require('./routes/categories'));
@@ -80,8 +95,45 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+function start() {
+  const server = app.listen(PORT, () => {
+    console.log(`MMR MaterialX API listening on :${PORT} (${config.ENV})`);
+    // Non-fatal startup DB probe: log clearly if the DB is unreachable so the
+    // operator sees it, but keep serving /health (liveness) so the platform
+    // doesn't crash-loop while a managed DB is waking up.
+    db.healthCheck()
+      .then(() => console.log('[startup] database connectivity OK'))
+      .catch((e) => console.error('[startup] database NOT reachable:', e && e.message));
+  });
+
+  // Graceful shutdown: stop accepting new connections, let in-flight requests
+  // finish, close the DB pool, then exit. Platforms send SIGTERM on redeploy.
+  let shuttingDown = false;
+  async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[shutdown] received ${signal}, closing gracefully…`);
+    const force = setTimeout(() => {
+      console.error('[shutdown] forced exit after timeout');
+      process.exit(1);
+    }, 10000);
+    force.unref();
+    server.close(async () => {
+      await db.close();
+      console.log('[shutdown] closed cleanly');
+      process.exit(0);
+    });
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  return server;
+}
+
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`MMR MaterialX API listening on :${PORT} (${config.ENV})`));
+  start();
 }
 
 module.exports = app;
+module.exports.start = start;

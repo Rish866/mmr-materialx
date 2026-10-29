@@ -10,7 +10,8 @@
     "seed": "node scripts/seed.js",
     "test": "node scripts/run-tests.js",
     "test:watch": "node --test --watch --test-concurrency=1 test/auth.test.js test/listings.test.js test/misc.test.js test/uploads.test.js",
-    "lint": "node scripts/check-syntax.js"
+    "lint": "node scripts/check-syntax.js",
+    "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -20,6 +21,6 @@
     "pg": "^8.12.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18 <23"
   }
 }
