@@ -30,6 +30,60 @@ npm start                # or: npm run dev  (node --watch)
 - `npm run dev` — run with `--watch`
 - `npm run migrate` — apply SQL migrations in `migrations/`
 - `npm run seed` — insert demo sellers + listings around MMR hubs
+- `npm test` — run the automated test suite (needs a test database — see below)
+- `npm run test:watch` — re-run tests on change
+- `npm run lint` — fast dependency-free syntax gate (`node --check` on every file)
+
+## Testing
+
+The suite uses **Node's built-in test runner** (`node:test`) — no extra test
+dependencies. Tests are **integration tests** against a **real PostgreSQL**
+database, so they need a throwaway database to point at.
+
+### What is covered
+`test/auth.test.js`, `test/listings.test.js`, `test/misc.test.js`,
+`test/uploads.test.js` — 40 tests covering: health & 404 handling; OTP
+send/verify incl. invalid, expired, reused codes; JWT guards (no/bad token);
+listing create (valid + invalid); feed with radius / category / title-search
+filters and urgent-first ordering; sold & expired hiding; listing detail;
+mark-sold ownership checks; deal-interest + safe WhatsApp URL generation;
+categories; profile get/patch; and upload-signing for `local`, `cloudinary`
+(signed params, signature verified, secret never leaked), plus `503` on a
+misconfigured `cloudinary`/`supabase` provider.
+
+Tests **never** send SMS, upload to a real cloud, or spend money: they force
+`SMS_PROVIDER=console` and `UPLOAD_PROVIDER=local`, and exercise the cloud
+*signing* logic with dummy credentials only.
+
+### Run the tests from a clean checkout
+
+1. Have a PostgreSQL instance available (local install, Docker, or a managed
+   dev DB). **Use a dedicated test database — the suite `TRUNCATE`s tables
+   between tests.**
+
+   Quick Docker option:
+   ```bash
+   docker run --rm -d --name mmr-test-db \
+     -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+     -e POSTGRES_DB=mmr_test -p 5432:5432 postgres:16
+   ```
+
+2. Install deps and run:
+   ```bash
+   npm ci
+   export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mmr_test"
+   export JWT_SECRET="any-test-secret"
+   export PGSSL=disable
+   npm test
+   ```
+   The harness applies the real migration automatically; you do not need to run
+   `migrate` first. A non-zero exit code means at least one test failed.
+
+### Notes on the test setup
+- `TEST_DATABASE_URL` is preferred; if unset, the harness falls back to
+  `DATABASE_URL`. Point it at a test DB only.
+- Tests run **serially** (`--test-concurrency=1`) because they share one
+  database; the whole suite finishes in ~2 seconds.
 
 ## Notes
 - The feed uses a Haversine distance query (no PostGIS needed at MVP scale).
