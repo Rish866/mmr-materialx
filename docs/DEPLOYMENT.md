@@ -15,9 +15,10 @@ host with managed PostgreSQL, and point the mobile app at it.
 
 ## What the code already does for you
 - `npm start` runs the API (`backend/src/server.js`).
-- `npm run migrate` applies the schema — **separately** from startup, idempotent
+- `npm run migrate` applies the schema — separately from server startup, idempotent
   and non-destructive (it refuses `DROP/TRUNCATE/DELETE` unless explicitly
-  allowed). Render runs it automatically as a **pre-deploy** step.
+  allowed). Render's free web services do not support pre-deploy commands, so
+  the Blueprint runs migrations at the end of the build command before startup.
 - Health checks: `GET /health` (liveness) and `GET /health/ready` (database up).
 - SSL to the database is enabled automatically for managed Postgres.
 - Graceful shutdown on redeploy (drains requests, closes the DB pool).
@@ -70,10 +71,15 @@ Step 3. (Production requires ≥32 characters and rejects known weak values.)
    first boot you need `DATABASE_URL` and `JWT_SECRET`; set the SMS and upload
    vars before real pilot users sign in.
 5. Click **Create / Deploy**. Render will:
-   - `npm ci` (install), then
-   - run **`npm run migrate`** (pre-deploy — creates tables), then
-   - `npm start` (launch), then
-   - probe **`/health`** until it's green.
+   - run `npm ci` to install dependencies,
+   - run `npm run migrate` at the end of the build command (before startup),
+   - run `npm start` to launch the API, then
+   - probe `/health` until it's green.
+
+   **Free-tier note:** Render does not support `preDeployCommand` on free web
+   services. This Blueprint runs migrations during the build instead. The
+   current migrations are idempotent and non-destructive; keep future migrations
+   backward-compatible with the currently running service where possible.
 
 If the deploy fails immediately with a config error in the logs, that's the
 safety guardrail — re-check the env vars in the checklist.
