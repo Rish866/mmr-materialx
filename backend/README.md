@@ -42,14 +42,24 @@ database, so they need a throwaway database to point at.
 
 ### What is covered
 `test/auth.test.js`, `test/listings.test.js`, `test/misc.test.js`,
-`test/uploads.test.js` — 40 tests covering: health & 404 handling; OTP
-send/verify incl. invalid, expired, reused codes; JWT guards (no/bad token);
-listing create (valid + invalid); feed with radius / category / title-search
-filters and urgent-first ordering; sold & expired hiding; listing detail;
-mark-sold ownership checks; deal-interest + safe WhatsApp URL generation;
-categories; profile get/patch; and upload-signing for `local`, `cloudinary`
-(signed params, signature verified, secret never leaked), plus `503` on a
-misconfigured `cloudinary`/`supabase` provider.
+`test/uploads.test.js`, `test/my-listings.test.js` — **61 tests** covering:
+health & 404 handling; OTP send/verify incl. invalid, expired, reused codes;
+JWT guards (no/bad token); listing create (valid + invalid); feed with radius /
+category / title-search filters and urgent-first ordering; sold/expired/withdrawn
+hiding; listing detail; mark-sold ownership checks; deal-interest + safe
+WhatsApp URL generation; categories; profile get/patch; upload-signing for
+`local`, `cloudinary` (signed params, signature verified, secret never leaked),
+plus `503` on a misconfigured `cloudinary`/`supabase` provider; **and the seller
+management flow** — `GET /listings/mine` (own-only, all statuses, lazy expiry),
+`PATCH /listings/:id` (owner-only edit, valid + every invalid-input path), and
+the `withdrawn` lifecycle (feed hide + re-activate).
+
+### Listing lifecycle (`status` column)
+`active` → shown to buyers · `sold` · `expired` (auto, when an urgent listing's
+24h window passes) · `withdrawn` (seller took it off the market; reversible).
+`withdrawn` was **added to the route's allow-list** in Phase 2 — no migration
+was needed because `status` is a free-text column; the public feed already
+shows only `active`.
 
 Tests **never** send SMS, upload to a real cloud, or spend money: they force
 `SMS_PROVIDER=console` and `UPLOAD_PROVIDER=local`, and exercise the cloud

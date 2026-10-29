@@ -71,6 +71,29 @@ router.get('/', async (req, res) => {
   res.json(rows);
 });
 
+// GET /listings/mine  — the authenticated seller's own listings (ALL statuses).
+// NOTE: must be declared BEFORE '/:id' so "mine" isn't captured as an id.
+// Lazily flips any of this seller's urgent listings whose expiry has passed to
+// status 'expired' so the UI never shows a stale 'active'. This is a safe,
+// infra-free cleanup scoped to the requesting owner's own rows only.
+router.get('/mine', requireAuth, async (req, res) => {
+  await db.query(
+    `UPDATE listings SET status='expired'
+      WHERE user_id=$1 AND status='active'
+        AND expires_at IS NOT NULL AND expires_at <= now()`,
+    [req.user.uid]
+  );
+  const { rows } = await db.query(
+    `SELECT l.*, c.slug AS category_slug, c.name AS category_name
+       FROM listings l
+       JOIN categories c ON c.id = l.category_id
+      WHERE l.user_id = $1
+      ORDER BY l.created_at DESC`,
+    [req.user.uid]
+  );
+  res.json(rows);
+});
+
 // GET /listings/:id  — detail incl. seller contact for the WhatsApp link
 router.get('/:id', async (req, res) => {
   const { rows } = await db.query(
@@ -87,10 +110,74 @@ router.get('/:id', async (req, res) => {
   res.json(rows[0]);
 });
 
+// Valid listing lifecycle states. 'withdrawn' lets a seller take a listing off
+// the market without a destructive delete (keeps analytics + history intact).
+const LISTING_STATUSES = ['active', 'sold', 'expired', 'withdrawn'];
+
+// PATCH /listings/:id  — edit listing fields (owner only).
+// Only whitelisted, user-editable columns can change; ownership is enforced in
+// the WHERE clause so a non-owner can never mutate someone else's listing.
+router.patch('/:id', requireAuth, async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'not_found' });
+  const b = req.body || {};
+
+  // Validate the fields that are present (partial update allowed).
+  if ('title' in b && (!b.title || !String(b.title).trim())) {
+    return res.status(400).json({ error: 'invalid_title' });
+  }
+  if ('price_type' in b && !['per_unit', 'total'].includes(b.price_type)) {
+    return res.status(400).json({ error: 'invalid_price_type' });
+  }
+  if ('photos' in b && !Array.isArray(b.photos)) {
+    return res.status(400).json({ error: 'invalid_photos' });
+  }
+  for (const num of ['quantity', 'price']) {
+    if (num in b && b[num] !== null && Number.isNaN(Number(b[num]))) {
+      return res.status(400).json({ error: `invalid_${num}` });
+    }
+  }
+  if ('category_id' in b) {
+    const cat = await db.query('SELECT 1 FROM categories WHERE id=$1', [b.category_id]);
+    if (!cat.rows.length) return res.status(400).json({ error: 'invalid_category' });
+  }
+
+  // Build a dynamic SET from only the editable fields that were provided.
+  const editable = ['title', 'category_id', 'quantity', 'unit', 'price',
+    'price_type', 'is_urgent', 'hub_name', 'photos'];
+  const sets = [];
+  const vals = [];
+  for (const f of editable) {
+    if (f in b) { vals.push(f === 'photos' ? (b[f] || []) : b[f]); sets.push(`${f}=$${vals.length}`); }
+  }
+
+  // Toggling is_urgent updates the 24h expiry window consistently with create.
+  if ('is_urgent' in b) {
+    if (b.is_urgent) {
+      vals.push(new Date(Date.now() + 24 * 3600 * 1000));
+      sets.push(`expires_at=$${vals.length}`);
+    } else {
+      sets.push(`expires_at=NULL`);
+    }
+  }
+
+  if (!sets.length) return res.status(400).json({ error: 'no_fields' });
+
+  vals.push(req.params.id);
+  vals.push(req.user.uid);
+  const { rows } = await db.query(
+    `UPDATE listings SET ${sets.join(', ')}
+      WHERE id=$${vals.length - 1} AND user_id=$${vals.length}
+      RETURNING *`,
+    vals
+  );
+  if (!rows.length) return res.status(404).json({ error: 'not_found_or_not_owner' });
+  res.json({ listing: rows[0] });
+});
+
 // PATCH /listings/:id/status  { status }  — owner only
 router.patch('/:id/status', requireAuth, async (req, res) => {
   const { status } = req.body;
-  if (!['active', 'sold', 'expired'].includes(status)) {
+  if (!LISTING_STATUSES.includes(status)) {
     return res.status(400).json({ error: 'bad_status' });
   }
   const { rows } = await db.query(

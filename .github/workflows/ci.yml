@@ -76,3 +76,32 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  mobile:
+    name: Mobile helper tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20']
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # The mobile unit tests cover pure helper functions (src/format.js) and
+      # import no dependencies, so we run them directly with Node — no need for
+      # a full (heavy) Expo `npm ci`.
+      - name: Run mobile helper tests
+        run: npm test

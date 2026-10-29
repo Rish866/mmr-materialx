@@ -8,7 +8,7 @@ import * as Location from 'expo-location';
 import { api } from '../api';
 import { colors, font, radius, spacing } from '../theme';
 import { Chip, UrgentTag } from '../components/ui';
-import { formatPrice, formatDistance } from '../format';
+import { formatPrice, formatDistance, thumbUrl } from '../format';
 
 const RADII = [10, 25, 50];
 const DEFAULT_LOC = { lat: 19.136, lng: 73.022, hub: 'Rabale' }; // fallback: Rabale
@@ -58,7 +58,7 @@ export default function HomeFeedScreen({ navigation }) {
       activeOpacity={0.9}
       onPress={() => navigation.navigate('Listing', { id: item.id })}
     >
-      <Image source={{ uri: item.photos?.[0] || 'https://picsum.photos/400' }} style={styles.cardImg} />
+      <Image source={{ uri: thumbUrl(item.photos?.[0], 400) || 'https://picsum.photos/400' }} style={styles.cardImg} />
       {item.is_urgent ? <UrgentTag style={styles.cardUrgent} /> : null}
       <View style={styles.cardBody}>
         <Text numberOfLines={1} style={styles.cardTitle}>{item.title}</Text>
