@@ -26,6 +26,7 @@ export default function AddListingScreen({ navigation }) {
   const [isUrgent, setIsUrgent] = useState(false);
   const [coords, setCoords] = useState(null);
   const [hub, setHub] = useState('Rabale');
+  const [locationDenied, setLocationDenied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
 
@@ -46,8 +47,14 @@ export default function AddListingScreen({ navigation }) {
       if (status === 'granted') {
         const pos = await Location.getCurrentPositionAsync({});
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationDenied(false);
+      } else {
+        // Permission denied — fall back to manual hub selection (below).
+        setLocationDenied(true);
       }
-    } catch {}
+    } catch {
+      setLocationDenied(true);
+    }
   }
 
   async function addPhoto() {
@@ -216,6 +223,11 @@ export default function AddListingScreen({ navigation }) {
             {coords ? `📍 GPS locked (${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)})` : '📍 Use my location'}
           </Text>
         </TouchableOpacity>
+        {locationDenied && !coords ? (
+          <Text style={styles.locHint}>
+            Location is off — pick your hub below / नीचे अपना हब चुनें
+          </Text>
+        ) : null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.sm }}>
           {HUBS.map((h) => (
             <TouchableOpacity key={h} onPress={() => setHub(h)}
@@ -279,5 +291,6 @@ const styles = StyleSheet.create({
   urgentTitle: { ...font.title, fontSize: 15, color: colors.danger },
   gpsBtn: { height: 52, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   gpsText: { color: colors.primaryDark, fontWeight: '700', fontSize: 15 },
+  locHint: { ...font.muted, color: colors.danger, marginTop: spacing.sm, fontWeight: '600' },
   uploadMsg: { ...font.muted, textAlign: 'center', marginBottom: spacing.md, color: colors.primaryDark, fontWeight: '700' },
 });

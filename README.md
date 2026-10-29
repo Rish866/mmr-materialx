@@ -106,6 +106,10 @@ hardening checklist (rate limiting, OTP brute-force protection, config
 validation, headers/CORS) **and the honest list of unresolved risks** — the
 system is hardened for a controlled pilot, not certified production-secure.
 
+**Deploy & pilot:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) (backend on
+Render + Neon) and [`docs/ANDROID_PILOT.md`](docs/ANDROID_PILOT.md) (build the
+installable Android APK with EAS, pre-release checklist, on-device smoke test).
+
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/API.md`](docs/API.md),
 and [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
